@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <meta name="webAuthnChallenge" th:content="${webAuthnChallenge}" content="" />
+
+    <th:block th:each="webAuthnCredentialId : ${webAuthnCredentialIds}">
+        <meta name="webAuthnCredentialId" th:content="${webAuthnCredentialId}" content="" />
+    </th:block>
+
+    <script
+            src="https://code.jquery.com/jquery-3.6.0.js"
+            integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk="
+            crossorigin="anonymous"></script>
+    <script th:src="@{/js/base64url.js}"></script>
+    <script th:src="@{/js/webauthn.js}"></script>
+
+
+</head>
+<body id="login-authenticator-login-view">
+
+
+<button id="signin" onclick="ffsdoit()" value="webAuthnLogin">signin</button>
+<!--<button id="register" onclick="register()" value="bla">register</button>-->
+
+
+<form th:action="@{/login}" method="post" id="login-form">
+
+    <input id="credentialId" name="credentialId" type="hidden" />
+    <input id="clientDataJSON" name="clientDataJSON" type="hidden" />
+    <input id="authenticatorData" name="authenticatorData" type="hidden" />
+    <input id="signature" name="signature" type="hidden" />
+    <input id="clientExtensions" name="clientExtensions" type="hidden" />
+</form>
+
+</body>
+</html>
