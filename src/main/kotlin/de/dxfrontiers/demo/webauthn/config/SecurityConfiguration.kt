@@ -55,9 +55,7 @@ class SecurityConfiguration(
     var webAuthnAuthenticatorService: WebAuthnAuthenticatorService,
     var webAuthnManager: WebAuthnManager,
     var passwordEncoder: PasswordEncoder,
-    var userDetailsService : UserDetailsService,
-    var assertionOptionsProvider: AssertionOptionsProvider
-
+    var userDetailsService : UserDetailsService
 ) : WebSecurityConfigurerAdapter() {
 
     @Throws(Exception::class)
@@ -75,49 +73,33 @@ class SecurityConfiguration(
         )
     }
 
-
     @Throws(Exception::class)
     override fun configure(http: HttpSecurity) {
 
         http.apply(WebAuthnLoginConfigurer.webAuthnLogin())
             .defaultSuccessUrl("/", true)
-            .failureUrl("/unauth2")
             .attestationOptionsEndpoint()
-                .rp()
-                    .name("WebAuthn4J Spring Security Sample MPA")
-                    .and()
+                .rp().name("WebAuthn Sample").and()
                 .pubKeyCredParams(
-                    PublicKeyCredentialParameters(PublicKeyCredentialType.PUBLIC_KEY, COSEAlgorithmIdentifier.ES256),
-                    PublicKeyCredentialParameters(PublicKeyCredentialType.PUBLIC_KEY, COSEAlgorithmIdentifier.RS1)
-                )
-                .attestation(AttestationConveyancePreference.DIRECT)
-                .extensions()
-                    .uvm(true)
-                    .credProps(true)
-                    .extensionProviders()
-                .and()
+                    PublicKeyCredentialParameters(PublicKeyCredentialType.PUBLIC_KEY, COSEAlgorithmIdentifier.ES256)
+                ).and()
             .assertionOptionsEndpoint()
-                .assertionOptionsProvider(assertionOptionsProvider)
-                .extensions()
-                    .extensionProviders()
 
         // Authorization
         http.authorizeRequests()
-            .mvcMatchers(HttpMethod.GET, "/login").permitAll()
+//            .mvcMatchers(HttpMethod.GET, "/login").permitAll()
             .mvcMatchers(HttpMethod.GET, "/signin").permitAll()
-            .mvcMatchers(HttpMethod.GET, "/unauth").permitAll()
             .mvcMatchers(HttpMethod.GET, "/signup").permitAll()
             .mvcMatchers(HttpMethod.POST, "/signup").permitAll()
             .anyRequest()
-            .access("@webAuthnSecurityExpression.isWebAuthnAuthenticated(authentication) || hasAuthority('SINGLE_FACTOR_AUTHN_ALLOWED')")
+                .access("@webAuthnSecurityExpression.isWebAuthnAuthenticated(authentication)")
 
+        // for routing the user to the correct endpoints
         http.exceptionHandling()
-            .accessDeniedHandler { request: HttpServletRequest?, response: HttpServletResponse, accessDeniedException: AccessDeniedException? ->
-                response.sendRedirect(
-                    "/signin"
-                )
+            .accessDeniedHandler { _: HttpServletRequest?, response: HttpServletResponse, _: AccessDeniedException? ->
+                response.sendRedirect("/signin")
             }
-            .authenticationEntryPoint { httpServletRequest: HttpServletRequest, httpServletResponse: HttpServletResponse, authenticationException: AuthenticationException ->
+            .authenticationEntryPoint { _: HttpServletRequest, httpServletResponse: HttpServletResponse, _: AuthenticationException ->
                 httpServletResponse.sendRedirect("/signin")
             }
 
@@ -125,7 +107,6 @@ class SecurityConfiguration(
         http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
         http.csrf().ignoringAntMatchers("/webauthn/**")
 
-//        http.headers().permissionsPolicy().policy("publickey-credentials-get *")
     }
 
 }
@@ -146,16 +127,6 @@ class SecurityConfiguration(
     fun webAuthnAuthenticatorManager(): WebAuthnAuthenticatorManager? {
         return InMemoryWebAuthnAuthenticatorManager()
     }
-
-//    class CustomInMemoryWebAuthnAuthenticatorManager(): InMemoryWebAuthnAuthenticatorManager() {
-//        override fun loadAuthenticatorsByUserPrincipal(userPrincipal: Any?): List<WebAuthnAuthenticator?>? {
-//            val innerMap = super.map.entries.filter { (it.key as UsernamePasswordAuthenticationToken).name.equals((userPrincipal as UsernamePasswordAuthenticationToken).name) }
-//            if (innerMap == null || innerMap.isEmpty()) {
-//                throw PrincipalNotFoundException("principal not found.")
-//            }
-//            return Collections.unmodifiableList(ArrayList(innerMap.values))
-//        }
-//    }
 
     @Bean
     fun objectConverter(): ObjectConverter? {
@@ -184,36 +155,6 @@ class SecurityConfiguration(
     ): AttestationOptionsProvider? {
         return AttestationOptionsProviderImpl(rpIdProvider, webAuthnAuthenticatorService, challengeRepository)
     }
-
-    @Bean
-    fun assertionOptionsProvider(
-        rpIdProvider: RpIdProvider?,
-        webAuthnAuthenticatorService: WebAuthnAuthenticatorService?,
-        challengeRepository: ChallengeRepository?
-    ): AssertionOptionsProvider? {
-        return AssertionOptionsProviderImpl(rpIdProvider, webAuthnAuthenticatorService, challengeRepository)
-    }
-
-//    class CustomAssertionOptionsProviderImpl (rpIdProvider: RpIdProvider? , authenticatorService: WebAuthnAuthenticatorService? , challengeRepository:ChallengeRepository?):
-//        AssertionOptionsProviderImpl(rpIdProvider , authenticatorService , challengeRepository ) {
-//        override fun getCredentials(authentication: Authentication?): List<PublicKeyCredentialDescriptor> {
-//            return if (authentication == null) {
-//                emptyList()
-//            } else try {
-//                authenticatorService.loadAuthenticatorsByUserPrincipal(authentication).stream()
-//                    .map { authenticator: WebAuthnAuthenticator ->
-//                        PublicKeyCredentialDescriptor(
-//                            PublicKeyCredentialType.PUBLIC_KEY,
-//                            authenticator.attestedCredentialData.credentialId,
-//                            authenticator.transports
-//                        )
-//                    }
-//                    .collect(Collectors.toList())
-//            } catch (e: PrincipalNotFoundException) {
-//                emptyList()
-//            }
-//        }
-//    }
 
     @Bean
     fun rpIdProvider(): RpIdProvider? {
