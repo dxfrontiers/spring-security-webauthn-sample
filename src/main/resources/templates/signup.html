@@ -1,40 +1,28 @@
-<!DOCTYPE html>
 <html lang="en" xmlns:th="https://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
     <title>Title</title>
-  <meta name="webAuthnChallenge" th:content="${webAuthnChallenge}" content="" />
-
-  <th:block th:each="webAuthnCredentialId : ${webAuthnCredentialIds}">
-    <meta name="webAuthnCredentialId" th:content="${webAuthnCredentialId}" content="" />
-  </th:block>
-
-  <script
-      src="https://code.jquery.com/jquery-3.6.0.js"
-      integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk="
-      crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
   <script th:src="@{/js/base64url.js}"></script>
   <script th:src="@{/js/webauthn.js}"></script>
-
 </head>
 <body>
 
+  <form th:action="@{/signup}" th:object="${userForm}"  method="post">
 
-<button id="creds">Credentials</button>
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" placeholder="Username" required autofocus />
 
-<form th:action="@{/signup}" th:object="${userForm}"  method="post">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" th:field="*{password}" placeholder="Password" required />
 
-  <label for="username" class="sr-only">Username</label>
-  <input type="text" id="username" name="username" class="form-control" placeholder="Username" required autofocus />
-  <label for="password" class="sr-only">Password</label>
-  <input type="password" id="password" name="password" th:field="*{password}" class="form-control" placeholder="Password" required />
-  <button id="submit" type="submit" disabled>Signup</button>
+    <a id="creds" href="#">Add Authenticator</a>
+    <button id="submit" type="submit" disabled>Signup</button>
 
-  <input id="clientDataJSON" name="authenticator.clientDataJSON" th:field="*{clientDataJSON}" type="hidden" />
-  <input id="attestationObject" name="authenticator.attestationObject" th:field="*{attestationObject}" type="hidden" />
-  <input id="clientExtensions" name="authenticator.clientExtensions" th:field="*{clientExtensions}" type="hidden" />
-  <input id="userHandle" name="userHandle" th:field="*{userHandle}" type="hidden" />
-</form>
+    <input id="clientDataJSON" name="authenticator.clientDataJSON" th:field="*{clientDataJSON}" type="hidden" />
+    <input id="attestationObject" name="authenticator.attestationObject" th:field="*{attestationObject}" type="hidden" />
+    <input id="clientExtensions" name="authenticator.clientExtensions" th:field="*{clientExtensions}" type="hidden" />
+    <input id="userHandle" name="userHandle" th:field="*{userHandle}" type="hidden" />
+  </form>
 
 </body>
 </html>

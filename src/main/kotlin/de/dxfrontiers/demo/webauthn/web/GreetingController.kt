@@ -53,13 +53,14 @@ class GreetingController(
 
     @GetMapping
     fun greeting(model: Model): String{
-        model.addAttribute("name", "Kenobi");
+        val name = SecurityContextHolder.getContext().authentication.name
+        model.addAttribute("name", name);
         return "greeting";
     }
 
-    @GetMapping(value = ["/login"])
+    @GetMapping(value = ["/unauth"])
     fun login(): String? {
-        return "login"
+        return "unauth"
     }
 
     @GetMapping(value = ["/signup"])
@@ -139,15 +140,17 @@ class GreetingController(
             return "VIEW_SIGNUP_SIGNUP"
         }
         logger.info("User registered: ${user.username}")
-        return "/login"
+        return "/signin"
     }
 
     @GetMapping(value = ["/signin"])
-    fun signin(): String? {
+    fun signin(model: Model): String? {
         val authentication = SecurityContextHolder.getContext().authentication
         return if (authenticationTrustResolver.isAnonymous(authentication)) {
             "signin"
         } else {
+            val name = SecurityContextHolder.getContext().authentication.name
+            model.addAttribute("name", name);
             "signin-authenticator"
         }
     }

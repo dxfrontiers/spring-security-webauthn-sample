@@ -36,6 +36,7 @@ import org.springframework.security.config.annotation.web.builders.WebSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter
 import org.springframework.security.core.Authentication
+import org.springframework.security.core.AuthenticationException
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -78,10 +79,9 @@ class SecurityConfiguration(
     @Throws(Exception::class)
     override fun configure(http: HttpSecurity) {
 
-
         http.apply(WebAuthnLoginConfigurer.webAuthnLogin())
             .defaultSuccessUrl("/", true)
-            .failureUrl("/login")
+            .failureUrl("/unauth2")
             .attestationOptionsEndpoint()
                 .rp()
                     .name("WebAuthn4J Spring Security Sample MPA")
@@ -105,6 +105,7 @@ class SecurityConfiguration(
         http.authorizeRequests()
             .mvcMatchers(HttpMethod.GET, "/login").permitAll()
             .mvcMatchers(HttpMethod.GET, "/signin").permitAll()
+            .mvcMatchers(HttpMethod.GET, "/unauth").permitAll()
             .mvcMatchers(HttpMethod.GET, "/signup").permitAll()
             .mvcMatchers(HttpMethod.POST, "/signup").permitAll()
             .anyRequest()
@@ -113,15 +114,18 @@ class SecurityConfiguration(
         http.exceptionHandling()
             .accessDeniedHandler { request: HttpServletRequest?, response: HttpServletResponse, accessDeniedException: AccessDeniedException? ->
                 response.sendRedirect(
-                    "/login"
+                    "/signin"
                 )
+            }
+            .authenticationEntryPoint { httpServletRequest: HttpServletRequest, httpServletResponse: HttpServletResponse, authenticationException: AuthenticationException ->
+                httpServletResponse.sendRedirect("/signin")
             }
 
         // As WebAuthn has its own CSRF protection mechanism (challenge), CSRF token is disabled here
         http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
         http.csrf().ignoringAntMatchers("/webauthn/**")
 
-        http.headers().permissionsPolicy().policy("publickey-credentials-get *")
+//        http.headers().permissionsPolicy().policy("publickey-credentials-get *")
     }
 
 }
