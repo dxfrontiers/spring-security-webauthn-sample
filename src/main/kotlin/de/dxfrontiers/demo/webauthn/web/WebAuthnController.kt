@@ -16,8 +16,6 @@ import org.apache.commons.logging.LogFactory
 import org.springframework.security.authentication.AuthenticationTrustResolver
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl
 import org.springframework.security.core.Authentication
-import org.springframework.security.core.GrantedAuthority
-import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -33,10 +31,9 @@ import javax.servlet.http.HttpServletRequest
 
 
 @Controller
-class GreetingController(
+class WebAuthnController(
     var webAuthnAuthenticatorManager: WebAuthnAuthenticatorManager,
     var registrationRequestValidator: WebAuthnRegistrationRequestValidator,
-    var challengeRepository: ChallengeRepository,
     var userDetailsManager: UserDetailsManager,
     var passwordEncoder: PasswordEncoder
     ) {
@@ -44,24 +41,6 @@ class GreetingController(
     private val logger: Log = LogFactory.getLog(javaClass)
     private val authenticationTrustResolver: AuthenticationTrustResolver = AuthenticationTrustResolverImpl()
 
-    @ModelAttribute
-    fun addAttributes(model: Model, request: HttpServletRequest?) {
-        val challenge = challengeRepository.loadOrGenerateChallenge(request)
-        model.addAttribute("webAuthnChallenge", Base64UrlUtil.encodeToString(challenge.value))
-        model.addAttribute("webAuthnCredentialIds", getCredentialIds())
-    }
-
-    @GetMapping
-    fun greeting(model: Model): String{
-        val name = SecurityContextHolder.getContext().authentication.name
-        model.addAttribute("name", name);
-        return "greeting";
-    }
-
-    @GetMapping(value = ["/unauth"])
-    fun login(): String? {
-        return "unauth"
-    }
 
     @GetMapping(value = ["/signup"])
     fun template(model: Model): String? {
@@ -76,13 +55,9 @@ class GreetingController(
     fun create(
         request: HttpServletRequest,
         @ModelAttribute("userForm") userCreateForm: UserCreateForm,
-        //result: BindingResult,
         model: Model,
-        //redirectAttributes: RedirectAttributes
     ): String {
-
-        val registrationRequestValidationResponse: WebAuthnRegistrationRequestValidationResponse
-        registrationRequestValidationResponse = try {
+        val validationResponse: WebAuthnRegistrationRequestValidationResponse = try {
             registrationRequestValidator.validate(
                 request,
                 userCreateForm.clientDataJSON,
@@ -91,53 +66,35 @@ class GreetingController(
                 userCreateForm.clientExtensions
             )
         } catch (e: WebAuthnException) {
-            model.addAttribute(
-                "errorMessage",
-                "Authenticator registration request validation failed. Please try again."
-            )
             logger.info("WebAuthn registration request validation failed.", e)
-            return "VIEW_SIGNUP_SIGNUP"
+            return "signup"
         } catch (e: WebAuthnAuthenticationException) {
-            model.addAttribute(
-                "errorMessage",
-                "Authenticator registration request validation failed. Please try again."
-            )
             logger.info("WebAuthn registration request validation failed.", e)
-            return "VIEW_SIGNUP_SIGNUP"
+            return "signup"
         }
 
         val password: String = passwordEncoder.encode(userCreateForm.password)
-
         val user = User(userCreateForm.username, password, listOf())
-
-        println("stmt \t: ${registrationRequestValidationResponse.attestationObject.attestationStatement.format}")
-        println("Data \t: ${Base64.getEncoder().encodeToString(
-            registrationRequestValidationResponse.attestationObject.authenticatorData.attestedCredentialData?.credentialId
-        )}")
-
         userDetailsManager.createUser(user)
 
-        // wipe it
-        user.eraseCredentials()
-        println("After wipe: User: ${user.username}")
+        logger.info("att: ${validationResponse.attestationObject.attestationStatement.format}")
 
         val authenticator: WebAuthnAuthenticator = WebAuthnAuthenticatorImpl(
             "authenticator",
             user.username,
-            registrationRequestValidationResponse.attestationObject.authenticatorData.attestedCredentialData,
-            registrationRequestValidationResponse.attestationObject.attestationStatement,
-            registrationRequestValidationResponse.attestationObject.authenticatorData.signCount,
-            registrationRequestValidationResponse.transports,
-            registrationRequestValidationResponse.registrationExtensionsClientOutputs,
-            registrationRequestValidationResponse.attestationObject.authenticatorData.extensions
+            validationResponse.attestationObject.authenticatorData.attestedCredentialData,
+            validationResponse.attestationObject.attestationStatement,
+            validationResponse.attestationObject.authenticatorData.signCount,
+            validationResponse.transports,
+            validationResponse.registrationExtensionsClientOutputs,
+            validationResponse.attestationObject.authenticatorData.extensions
         )
 
         try {
             webAuthnAuthenticatorManager.createAuthenticator(authenticator)
         } catch (ex: IllegalArgumentException) {
-            model.addAttribute("errorMessage", "Registration failed. The user may already be registered.")
             logger.info("Registration failed.", ex)
-            return "VIEW_SIGNUP_SIGNUP"
+            return "signup"
         }
         logger.info("User registered: ${user.username}")
         return "/signin"
@@ -149,31 +106,16 @@ class GreetingController(
         return if (authenticationTrustResolver.isAnonymous(authentication)) {
             "signin"
         } else {
-            val name = SecurityContextHolder.getContext().authentication.name
-            model.addAttribute("name", name);
+            model.addAttribute("name", authentication.name);
             "signin-authenticator"
         }
     }
 
-    fun getCredentialIds(): List<String>? {
-        val authentication: Authentication = SecurityContextHolder.getContext().authentication
-        val principal: Any = authentication.getPrincipal()
-        return if (principal == null || authenticationTrustResolver.isAnonymous(authentication)) {
-            emptyList()
-        } else {
-            try {
-                val webAuthnAuthenticators = webAuthnAuthenticatorManager.loadAuthenticatorsByUserPrincipal(principal)
-                webAuthnAuthenticators.stream()
-                    .map { webAuthnAuthenticator: WebAuthnAuthenticator ->
-                        Base64UrlUtil.encodeToString(
-                            webAuthnAuthenticator.attestedCredentialData.credentialId
-                        )
-                    }
-                    .collect(Collectors.toList())
-            } catch (e: PrincipalNotFoundException) {
-                emptyList()
-            }
-        }
+    @GetMapping
+    fun greeting(model: Model): String{
+        val name = SecurityContextHolder.getContext().authentication.name
+        model.addAttribute("name", name);
+        return "greeting";
     }
 
 }

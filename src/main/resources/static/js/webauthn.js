@@ -4,6 +4,7 @@ function createCredential(){
     let userHandle = $("#userHandle").val();
 
     return $.get('/webauthn/attestation/options', null, null, "json").then( options =>{
+        console.log(options)
         let ccOptions = {
             rp: {
                 id: options.rp.id,

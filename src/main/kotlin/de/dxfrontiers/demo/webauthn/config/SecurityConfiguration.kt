@@ -60,9 +60,13 @@ class SecurityConfiguration(
 
     @Throws(Exception::class)
     override fun configure(builder: AuthenticationManagerBuilder) {
-        builder.apply(WebAuthnAuthenticationProviderConfigurer(webAuthnAuthenticatorService, webAuthnManager))
-        builder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder)
+        builder.apply(WebAuthnAuthenticationProviderConfigurer(
+                webAuthnAuthenticatorService, webAuthnManager)
+        )
+        builder.userDetailsService(userDetailsService)
+            .passwordEncoder(passwordEncoder)
     }
+
     override fun configure(web: WebSecurity) {
         // ignore static resources
         web.ignoring().antMatchers(
